@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ student.name }} — Result Card</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --navy: #0a0f2e;
+            --deep: #060c1f;
+            --gold: #f5c842;
+            --white: #f8fafc;
+            --muted: #94a3b8;
+            --card: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.08);
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--deep);
+            color: var(--white);
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 15% 0%, rgba(59, 130, 246, 0.1) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 85% 90%, rgba(245, 200, 66, 0.07) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        header {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.4rem 3rem;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            background: rgba(6, 12, 31, 0.6);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--gold), #e8a000);
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--deep);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .logo-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .logo-text span {
+            color: var(--gold);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.82rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            color: var(--white);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        /* ── MAIN LAYOUT ── */
+        .container {
+            position: relative;
+            z-index: 5;
+            max-width: 900px;
+            margin: 2.5rem auto;
+            padding: 0 1.5rem;
+        }
+
+        /* ── STUDENT CARD ── */
+        .student-card {
+            background: linear-gradient(135deg, rgba(245, 200, 66, 0.08), rgba(59, 130, 246, 0.05));
+            border: 1px solid rgba(245, 200, 66, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            animation: fadeUp 0.5s ease both;
+        }
+
+        .student-info {
+            flex: 1;
+        }
+
+        .student-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 0.5rem;
+        }
+
+        .student-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 0.8rem;
+        }
+
+        .meta-tag {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.78rem;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+        }
+
+        .meta-tag strong {
+            color: var(--white);
+            font-size: 0.82rem;
+        }
+
+        /* ── OVERALL BADGE ── */
+        .result-badge {
+            text-align: center;
+            min-width: 130px;
+        }
+
+        .grade-circle {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 0.6rem;
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 900;
+            position: relative;
+        }
+
+        .grade-circle.pass {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.05));
+            border: 2px solid rgba(34, 197, 94, 0.4);
+            color: var(--green);
+        }
+
+        .grade-circle.fail {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05));
+            border: 2px solid rgba(239, 68, 68, 0.4);
+            color: var(--red);
+        }
+
+        .result-status {
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .result-status.pass {
+            color: var(--green);
+        }
+
+        .result-status.fail {
+            color: var(--red);
+        }
+
+        .percentage {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin-top: 0.2rem;
+        }
+
+        /* ── MARKS TABLE ── */
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .marks-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+            animation: fadeUp 0.5s ease 0.1s both;
+        }
+
+        .subject-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.2rem 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: border-color 0.2s;
+        }
+
+        .subject-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .subject-name {
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--white);
+            margin-bottom: 0.2rem;
+        }
+
+        .subject-grade-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
+
+        .subject-marks-col {
+            text-align: right;
+        }
+
+        .marks-num {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .marks-num.high {
+            color: var(--green);
+        }
+
+        .marks-num.mid {
+            color: var(--gold);
+        }
+
+        .marks-num.low {
+            color: var(--red);
+        }
+
+        .grade-pill {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 100px;
+            display: inline-block;
+            margin-top: 0.2rem;
+        }
+
+        .grade-O {
+            background: rgba(34, 197, 94, 0.15);
+            color: #86efac;
+        }
+
+        .grade-Ap {
+            background: rgba(34, 197, 94, 0.1);
+            color: #86efac;
+        }
+
+        .grade-A {
+            background: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+        }
+
+        .grade-Bp {
+            background: rgba(245, 200, 66, 0.15);
+            color: #fde68a;
+        }
+
+        .grade-B {
+            background: rgba(245, 200, 66, 0.1);
+            color: #fde68a;
+        }
+
+        .grade-F {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+        }
+
+        /* ── SUMMARY ROW ── */
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+            animation: fadeUp 0.5s ease 0.2s both;
+        }
+
+        .sum-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .sum-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .sum-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 0.2rem;
+        }
+
+        /* ── PROGRESS BARS ── */
+        .progress-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            animation: fadeUp 0.5s ease 0.3s both;
+        }
+
+        .progress-item {
+            margin-bottom: 1rem;
+        }
+
+        .progress-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .progress-name {
+            font-size: 0.82rem;
+            color: var(--white);
+        }
+
+        .progress-val {
+            font-size: 0.78rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--muted);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 100px;
+            transition: width 1s ease;
+        }
+
+        .fill-high {
+            background: linear-gradient(90deg, #22c55e, #86efac);
+        }
+
+        .fill-mid {
+            background: linear-gradient(90deg, #f5c842, #fde68a);
+        }
+
+        .fill-low {
+            background: linear-gradient(90deg, #ef4444, #fca5a5);
+        }
+
+        /* ── DOCKER INFO ── */
+        .docker-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(59, 130, 246, 0.06);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-radius: 12px;
+            padding: 1rem 1.4rem;
+            animation: fadeUp 0.5s ease 0.4s both;
+        }
+
+        .docker-info-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: rgba(147, 197, 253, 0.7);
+        }
+
+        .docker-info-text strong {
+            color: #93c5fd;
+        }
+
+        .print-btn {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .print-btn:hover {
+            background: rgba(59, 130, 246, 0.25);
+        }
+
+        footer-text {
+            position: relative;
+            z-index: 5;
+            display: block;
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-size: 0.75rem;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .marks-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .student-card {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .student-meta {
+                justify-content: center;
+            }
+
+            .docker-footer {
+                flex-direction: column;
+                gap: 0.8rem;
+                text-align: center;
+            }
+
+            header {
+                padding: 1rem 1.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">
+            <div class="logo-icon">V</div>
+            <div class="logo-text">Vishwakarma <span>University</span></div>
+        </div>
+        <a href="/" class="back-btn">← Back to Portal</a>
+    </header>
+
+    <div class="container">
+
+        <!-- Student Info Card -->
+        <div class="student-card">
+            <div class="student-info">
+                <div class="student-name">{{ student.name }}</div>
+                <div class="student-meta">
+                    <span class="meta-tag">🪪 Roll: <strong>{{ student.roll }}</strong></span>
+                    <span class="meta-tag">🏛 Branch: <strong>{{ student.branch }}</strong></span>
+                    <span class="meta-tag">📚 Semester: <strong>{{ student.semester }}</strong></span>
+                    <span class="meta-tag">🗓 Date: <strong>{{ timestamp }}</strong></span>
+                </div>
+            </div>
+            <div class="result-badge">
+                <div class="grade-circle {{ 'pass' if summary.passed else 'fail' }}">
+                    {{ summary.grade }}
+                </div>
+                <div class="result-status {{ 'pass' if summary.passed else 'fail' }}">
+                    {{ 'PASSED' if summary.passed else 'FAILED' }}
+                </div>
+                <div class="percentage">{{ summary.percentage }}%</div>
+            </div>
+        </div>
+
+        <!-- Subject Marks -->
+        <div class="section-title">Subject-wise Marks</div>
+        <div class="marks-grid">
+            {% for sub, data in subjects.items() %}
+            <div class="subject-card">
+                <div>
+                    <div class="subject-name">{{ sub }}</div>
+                    <div class="subject-grade-label">{{ data.label }}</div>
+                </div>
+                <div class="subject-marks-col">
+                    <div class="marks-num {{ 'high' if data.marks >= 75 else ('mid' if data.marks >= 50 else 'low') }}">
+                        {{ data.marks }}
+                    </div>
+                    <span class="grade-pill grade-{{ data.grade.replace('+', 'p') }}">{{ data.grade }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="section-title">Performance Summary</div>
+        <div class="summary-row">
+            <div class="sum-card">
+                <div class="sum-value">{{ summary.total }}</div>
+                <div class="sum-label">Total Marks</div>
+            </div>
+            <div class="sum-card">
+                <div class="sum-value">{{ summary.percentage }}%</div>
+                <div class="sum-label">Percentage</div>
+            </div>
+            <div class="sum-card">
+                <div class="sum-value">{{ summary.grade }}</div>
+                <div class="sum-label">Final Grade</div>
+            </div>
+            <div class="sum-card">
+                <div class="sum-value">600</div>
+                <div class="sum-label">Max Marks</div>
+            </div>
+        </div>
+
+        <!-- Progress Bars -->
+        <div class="section-title">Visual Performance</div>
+        <div class="progress-section">
+            {% for sub, data in subjects.items() %}
+            <div class="progress-item">
+                <div class="progress-header">
+                    <span class="progress-name">{{ sub }}</span>
+                    <span class="progress-val">{{ data.marks }}/100</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill {{ 'fill-high' if data.marks >= 75 else ('fill-mid' if data.marks >= 50 else 'fill-low') }}"
+                        data-width="{{ data.marks }}"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Docker Info -->
+        <div class="docker-footer">
+            <div class="docker-info-text">
+                🐳 Container: <strong>{{ container_id }}</strong> &nbsp;·&nbsp; Portal running via Docker · Build Once,
+                Run Anywhere
+            </div>
+            <button class="print-btn" onclick="window.print()">🖨 Print Result</button>
+        </div>
+
+    </div>
+
+    <footer-text>© 2025 Vishwakarma University — Examination Cell · Result is provisional until officially
+        verified.</footer-text>
+
+    <script>
+        document.querySelectorAll('.progress-fill').forEach(function (el) {
+            el.style.width = el.getAttribute('data-width') + '%';
+        });
+    </script>
+</body>
+
+</html>

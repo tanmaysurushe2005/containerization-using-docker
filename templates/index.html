@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vishwakarma University — Student Result Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --navy: #0a0f2e;
+            --deep: #060c1f;
+            --gold: #f5c842;
+            --gold-light: #fde68a;
+            --blue: #3b82f6;
+            --blue-light: #93c5fd;
+            --white: #f8fafc;
+            --muted: #94a3b8;
+            --card: rgba(255,255,255,0.04);
+            --border: rgba(255,255,255,0.08);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--deep);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background mesh */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 60% at 20% 10%, rgba(59,130,246,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 80% 80%, rgba(245,200,66,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 40% at 50% 50%, rgba(10,15,46,0.8) 0%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Grid overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── HEADER ── */
+        header {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.4rem 3rem;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            background: rgba(6,12,31,0.6);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--gold), #e8a000);
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--deep);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .logo-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .logo-text span { color: var(--gold); }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+        }
+
+        /* ── HERO ── */
+        .hero {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+            padding: 5rem 2rem 3rem;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(245,200,66,0.1);
+            border: 1px solid rgba(245,200,66,0.25);
+            color: var(--gold);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 0.4rem 1rem;
+            border-radius: 100px;
+            margin-bottom: 2rem;
+            animation: fadeDown 0.6s ease both;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.8rem, 6vw, 5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.2rem;
+            animation: fadeUp 0.7s ease 0.1s both;
+        }
+
+        .hero h1 .accent { color: var(--gold); }
+
+        .hero p {
+            color: var(--muted);
+            font-size: 1.1rem;
+            max-width: 520px;
+            margin: 0 auto 3rem;
+            line-height: 1.7;
+            animation: fadeUp 0.7s ease 0.2s both;
+        }
+
+        /* ── SEARCH CARD ── */
+        .search-wrapper {
+            position: relative;
+            z-index: 5;
+            max-width: 560px;
+            margin: 0 auto;
+            animation: fadeUp 0.7s ease 0.3s both;
+        }
+
+        .search-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(30px);
+            border-radius: 20px;
+            padding: 2rem;
+        }
+
+        .search-card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-card h2::before {
+            content: '';
+            width: 3px;
+            height: 18px;
+            background: var(--gold);
+            border-radius: 2px;
+        }
+
+        form { display: flex; flex-direction: column; gap: 1rem; }
+
+        .input-group { position: relative; }
+
+        .input-group label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--muted);
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--white);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            padding: 0.9rem 1.2rem;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.2s;
+            letter-spacing: 0.05em;
+        }
+
+        .input-group input::placeholder { color: rgba(148,163,184,0.4); }
+        .input-group input:focus {
+            border-color: var(--gold);
+            background: rgba(245,200,66,0.05);
+            box-shadow: 0 0 0 3px rgba(245,200,66,0.1);
+        }
+
+        .hint {
+            font-size: 0.72rem;
+            color: rgba(148,163,184,0.6);
+            margin-top: 0.3rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .hint span { color: var(--blue-light); }
+
+        button[type="submit"] {
+            background: linear-gradient(135deg, var(--gold), #e8a000);
+            color: var(--deep);
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.02em;
+        }
+
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(245,200,66,0.3);
+        }
+
+        button[type="submit"]:active { transform: translateY(0); }
+
+        /* ── ERROR ── */
+        .error-box {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+            border-radius: 10px;
+            padding: 0.8rem 1rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* ── STATS ROW ── */
+        .stats-row {
+            position: relative;
+            z-index: 5;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            max-width: 700px;
+            margin: 3rem auto 0;
+            padding: 0 2rem;
+            animation: fadeUp 0.7s ease 0.4s both;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* ── DOCKER BADGE ── */
+        .docker-info {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 2rem;
+            animation: fadeUp 0.7s ease 0.5s both;
+        }
+
+        .docker-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.2);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--blue-light);
+        }
+
+        .docker-badge .icon { font-size: 1rem; }
+
+        /* ── FOOTER ── */
+        footer {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.78rem;
+            margin-top: 3rem;
+        }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 1rem 1.2rem; }
+            .hero { padding: 3rem 1.2rem 2rem; }
+            .stats-row { grid-template-columns: 1fr; padding: 0 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div class="logo-icon">V</div>
+        <div class="logo-text">Vishwakarma <span>University</span></div>
+    </div>
+    <div class="header-status">
+        <div class="status-dot"></div>
+        PORTAL LIVE · {{ timestamp }}
+    </div>
+</header>
+
+<section class="hero">
+    <div class="hero-badge">🎓 Academic Year 2024–25 · Semester VI</div>
+    <h1>Student <span class="accent">Result</span><br>Portal</h1>
+    <p>Access your official examination results, grade cards, and performance analytics securely and instantly.</p>
+</section>
+
+<div class="search-wrapper">
+    <div class="search-card">
+        <h2>Check Your Result</h2>
+        <form action="/result" method="POST">
+            <div class="input-group">
+                <label>Roll Number</label>
+                <input type="text" name="roll_number" placeholder="e.g. S2401" required autocomplete="off" autofocus>
+                <p class="hint">Try: <span>S2401</span>, <span>S2402</span>, <span>S2403</span> ... <span>S2408</span></p>
+            </div>
+            {% if error %}
+            <div class="error-box">⚠ {{ error }}</div>
+            {% endif %}
+            <button type="submit">View My Result →</button>
+        </form>
+    </div>
+</div>
+
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-number">8</div>
+        <div class="stat-label">Students Enrolled</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">6</div>
+        <div class="stat-label">Subjects</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">99.9%</div>
+        <div class="stat-label">Portal Uptime</div>
+    </div>
+</div>
+
+<div class="docker-info">
+    <div class="docker-badge">
+        <span class="icon">🐳</span>
+        Containerized by Docker · Running on Container: <strong>{{ container_id }}</strong>
+    </div>
+</div>
+
+<footer>
+    © 2025 Vishwakarma University · Examination Cell · All rights reserved.<br>
+    <span style="color: rgba(148,163,184,0.4); margin-top:0.3rem; display:block;">Powered by Docker Containerization — Build Once, Run Anywhere</span>
+</footer>
+
+</body>
+</html>

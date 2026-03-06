@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  result-portal:
+    build: .
+    ports:
+      - "5000:5000"
+    container_name: student_result_portal
+    restart: unless-stopped
