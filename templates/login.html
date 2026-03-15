@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Login - Vishwakarma University</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --navy: #0a0f2e;
+            --deep: #060c1f;
+            --gold: #f5c842;
+            --blue: #3b82f6;
+            --white: #f8fafc;
+            --muted: #94a3b8;
+            --card: rgba(255,255,255,0.04);
+            --border: rgba(255,255,255,0.1);
+            --red: #ef4444;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: 'DM Sans', sans-serif;
+            color: var(--white);
+            background: var(--deep);
+            display: flex;
+            flex-direction: column;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 60% at 15% 10%, rgba(59,130,246,0.12) 0%, transparent 65%),
+                radial-gradient(ellipse 55% 50% at 85% 80%, rgba(245,200,66,0.09) 0%, transparent 65%);
+            z-index: 0;
+        }
+
+        header {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.3rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(6, 12, 31, 0.55);
+            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(15px);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            font-size: 1.2rem;
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            color: var(--deep);
+            background: linear-gradient(135deg, var(--gold), #e8a000);
+        }
+
+        .logo-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .logo-text span { color: var(--gold); }
+
+        .header-meta {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.74rem;
+            color: var(--muted);
+        }
+
+        .header-meta a {
+            color: #bfdbfe;
+            text-decoration: none;
+            margin-left: 0.7rem;
+        }
+
+        .header-meta a:hover {
+            text-decoration: underline;
+        }
+
+        .page {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 3.2rem 1.2rem 2rem;
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 1.4rem;
+            align-items: stretch;
+            flex: 1;
+        }
+
+        .showcase,
+        .login-card {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            -webkit-backdrop-filter: blur(24px);
+            backdrop-filter: blur(24px);
+            border-radius: 20px;
+            padding: 2rem;
+        }
+
+        .showcase h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1.15;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .showcase h1 span { color: var(--gold); }
+
+        .showcase p {
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+
+        .credential-note {
+            background: rgba(59,130,246,0.12);
+            border: 1px solid rgba(59,130,246,0.28);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            font-size: 0.83rem;
+            color: #bfdbfe;
+            line-height: 1.65;
+        }
+
+        .credential-note code {
+            font-family: 'JetBrains Mono', monospace;
+            color: #dbeafe;
+        }
+
+        .login-card h2 {
+            font-size: 1.08rem;
+            font-weight: 700;
+            margin-bottom: 1.1rem;
+            letter-spacing: 0.02em;
+        }
+
+        .field {
+            margin-bottom: 0.9rem;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .field input {
+            width: 100%;
+            border-radius: 11px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            color: var(--white);
+            padding: 0.82rem 0.95rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .field input:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(245,200,66,0.15);
+            background: rgba(245,200,66,0.06);
+        }
+
+        .hint {
+            margin-top: 0.35rem;
+            font-size: 0.72rem;
+            color: rgba(148,163,184,0.75);
+        }
+
+        .error-box {
+            margin-bottom: 0.9rem;
+            border: 1px solid rgba(239,68,68,0.35);
+            background: rgba(239,68,68,0.12);
+            color: #fecaca;
+            border-radius: 10px;
+            padding: 0.75rem 0.85rem;
+            font-size: 0.83rem;
+        }
+
+        .submit-btn {
+            width: 100%;
+            border: none;
+            border-radius: 11px;
+            background: linear-gradient(135deg, var(--gold), #e8a000);
+            color: var(--deep);
+            font-size: 0.96rem;
+            font-weight: 700;
+            padding: 0.9rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 26px rgba(245,200,66,0.28);
+        }
+
+        .login-footnote {
+            margin-top: 0.85rem;
+            font-size: 0.73rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        footer {
+            position: relative;
+            z-index: 2;
+            border-top: 1px solid var(--border);
+            padding: 1.2rem;
+            text-align: center;
+            color: rgba(148,163,184,0.85);
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 900px) {
+            .page {
+                grid-template-columns: 1fr;
+                padding-top: 2rem;
+            }
+
+            .showcase,
+            .login-card {
+                padding: 1.35rem;
+            }
+
+            header {
+                padding: 1rem 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div class="logo-icon">V</div>
+        <div class="logo-text">Vishwakarma <span>University</span></div>
+    </div>
+    <div class="header-meta">LOGIN PORTAL · {{ timestamp }} <a href="/admin/login">Admin</a></div>
+</header>
+
+<main class="page">
+    <section class="showcase">
+        <h1>Secure <span>Student Login</span></h1>
+        <p>
+            Authenticate first to access your personal result dashboard. Each session is tied to one student roll
+            number to prevent viewing any other record.
+        </p>
+        <div class="credential-note">
+            Initial password format (first login only):<br>
+            <code>&lt;roll_number in lowercase&gt;{{ password_suffix }}</code><br>
+            Example: roll <code>S2401</code> password <code>s2401{{ password_suffix }}</code><br>
+            After first login, you must set your own private password.
+        </div>
+    </section>
+
+    <section class="login-card">
+        <h2>Sign In</h2>
+        {% if error %}
+        <div class="error-box">{{ error }}</div>
+        {% endif %}
+        <form action="/login" method="POST">
+            <div class="field">
+                <label for="roll_number">Roll Number</label>
+                <input id="roll_number" name="roll_number" type="text" placeholder="e.g. S2401" required autocomplete="off" value="{{ roll_hint }}">
+                <p class="hint">Valid examples: S2401 to S2450</p>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" placeholder="Enter password" required autocomplete="off">
+                <p class="hint">Password is case-sensitive.</p>
+            </div>
+            <button class="submit-btn" type="submit">Authenticate and Continue</button>
+        </form>
+        <p class="login-footnote">
+            Passwords are stored as one-way hashes in MySQL, not plain text.
+        </p>
+    </section>
+</main>
+
+<footer>
+    © 2026 Vishwakarma University · Examination Cell · Dockerized Portal
+</footer>
+
+</body>
+</html>

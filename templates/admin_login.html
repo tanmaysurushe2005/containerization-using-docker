@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Student Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --deep: #04081b;
+            --ink: #dbeafe;
+            --muted: #94a3b8;
+            --cyan: #06b6d4;
+            --card: rgba(255,255,255,0.04);
+            --border: rgba(255,255,255,0.12);
+            --red: #ef4444;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--deep);
+            color: var(--ink);
+            font-family: 'DM Sans', sans-serif;
+            display: grid;
+            place-items: center;
+            padding: 1rem;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(circle at 15% 10%, rgba(6,182,212,0.17), transparent 40%),
+                radial-gradient(circle at 85% 90%, rgba(59,130,246,0.14), transparent 45%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .card {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 430px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            border-radius: 18px;
+            -webkit-backdrop-filter: blur(22px);
+            backdrop-filter: blur(22px);
+            padding: 1.6rem;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.9rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .sub {
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .error {
+            margin-bottom: 0.85rem;
+            border: 1px solid rgba(239,68,68,0.35);
+            background: rgba(239,68,68,0.13);
+            color: #fecaca;
+            border-radius: 10px;
+            padding: 0.72rem 0.82rem;
+            font-size: 0.82rem;
+        }
+
+        .field { margin-bottom: 0.9rem; }
+
+        label {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: var(--muted);
+            font-size: 0.69rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            color: var(--ink);
+            padding: 0.78rem 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        input:focus {
+            border-color: rgba(6,182,212,0.8);
+            box-shadow: 0 0 0 3px rgba(6,182,212,0.18);
+        }
+
+        .submit-btn {
+            width: 100%;
+            border: none;
+            border-radius: 10px;
+            padding: 0.86rem;
+            font-weight: 700;
+            color: #042631;
+            background: linear-gradient(135deg, #06b6d4, #67e8f9);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 26px rgba(6,182,212,0.24);
+        }
+
+        .actions {
+            margin-top: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        .actions a {
+            color: #7dd3fc;
+            text-decoration: none;
+        }
+
+        .actions a:hover { text-decoration: underline; }
+
+        .meta {
+            margin-top: 0.9rem;
+            color: rgba(148,163,184,0.8);
+            font-size: 0.72rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Admin Login</h1>
+    <p class="sub">Faculty/admin access for searching students and managing credential resets.</p>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form action="/admin/login" method="POST">
+        <div class="field">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" placeholder="Enter admin username" value="{{ username_hint }}" required>
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" placeholder="Enter admin password" required>
+        </div>
+        <button class="submit-btn" type="submit">Sign In as Admin</button>
+    </form>
+
+    <div class="actions">
+        <a href="/login">Student login</a>
+        <a href="/">Portal home</a>
+    </div>
+
+    <div class="meta">Container: {{ container_id }} · {{ timestamp }}</div>
+</div>
+
+</body>
+</html>

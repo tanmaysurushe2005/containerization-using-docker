@@ -66,6 +66,7 @@
             justify-content: space-between;
             padding: 1.4rem 3rem;
             border-bottom: 1px solid var(--border);
+            -webkit-backdrop-filter: blur(20px);
             backdrop-filter: blur(20px);
             background: rgba(6, 12, 31, 0.6);
         }
@@ -117,6 +118,32 @@
             color: var(--white);
             border-color: rgba(255, 255, 255, 0.2);
             background: rgba(255, 255, 255, 0.07);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-decoration: none;
+            font-size: 0.82rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: #fca5a5;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.28);
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            color: #fecaca;
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
         }
 
         /* ── MAIN LAYOUT ── */
@@ -539,7 +566,10 @@
             <div class="logo-icon">V</div>
             <div class="logo-text">Vishwakarma <span>University</span></div>
         </div>
-        <a href="/" class="back-btn">← Back to Portal</a>
+        <div class="header-controls">
+            <a href="/dashboard" class="back-btn">← Dashboard</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
     </header>
 
     <div class="container">

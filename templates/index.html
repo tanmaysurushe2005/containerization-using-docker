@@ -66,6 +66,7 @@
             justify-content: space-between;
             padding: 1.4rem 3rem;
             border-bottom: 1px solid var(--border);
+            -webkit-backdrop-filter: blur(20px);
             backdrop-filter: blur(20px);
             background: rgba(6,12,31,0.6);
         }
@@ -105,6 +106,30 @@
             font-size: 0.75rem;
             color: var(--muted);
             font-family: 'JetBrains Mono', monospace;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .logout-btn {
+            text-decoration: none;
+            color: var(--gold-light);
+            border: 1px solid rgba(245,200,66,0.25);
+            background: rgba(245,200,66,0.08);
+            padding: 0.5rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(245,200,66,0.16);
+            border-color: rgba(245,200,66,0.45);
         }
 
         .status-dot {
@@ -177,6 +202,7 @@
         .search-card {
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--border);
+            -webkit-backdrop-filter: blur(30px);
             backdrop-filter: blur(30px);
             border-radius: 20px;
             padding: 2rem;
@@ -201,6 +227,21 @@
         }
 
         form { display: flex; flex-direction: column; gap: 1rem; }
+
+        .welcome-box {
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 12px;
+            padding: 0.9rem 1rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .welcome-box p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #bfdbfe;
+            line-height: 1.6;
+        }
 
         .input-group { position: relative; }
 
@@ -351,6 +392,12 @@
             margin-top: 3rem;
         }
 
+        .footer-note {
+            color: rgba(148,163,184,0.4);
+            margin-top: 0.3rem;
+            display: block;
+        }
+
         /* ── ANIMATIONS ── */
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -376,47 +423,52 @@
         <div class="logo-icon">V</div>
         <div class="logo-text">Vishwakarma <span>University</span></div>
     </div>
-    <div class="header-status">
-        <div class="status-dot"></div>
-        PORTAL LIVE · {{ timestamp }}
+    <div class="header-actions">
+        <div class="header-status">
+            <div class="status-dot"></div>
+            {{ student.roll }} · {{ timestamp }}
+        </div>
+        <a href="/logout" class="logout-btn">Logout</a>
     </div>
 </header>
 
 <section class="hero">
     <div class="hero-badge">🎓 Academic Year 2024–25 · Semester VI</div>
-    <h1>Student <span class="accent">Result</span><br>Portal</h1>
-    <p>Access your official examination results, grade cards, and performance analytics securely and instantly.</p>
+    <h1>Welcome, <span class="accent">{{ student.name }}</span></h1>
+    <p>You are now authenticated. Open your personal result card and view complete marks, grades, and performance insights.</p>
 </section>
 
 <div class="search-wrapper">
     <div class="search-card">
-        <h2>Check Your Result</h2>
-        <form action="/result" method="POST">
+        <h2>Your Dashboard</h2>
+        <div class="welcome-box">
+            <p>
+                Signed in as <strong>{{ student.roll }}</strong> · {{ student.branch }} · Semester {{ student.semester }}
+            </p>
+        </div>
+        <form action="/result" method="GET">
             <div class="input-group">
-                <label>Roll Number</label>
-                <input type="text" name="roll_number" placeholder="e.g. S2401" required autocomplete="off" autofocus>
-                <p class="hint">Try: <span>S2401</span>, <span>S2402</span>, <span>S2403</span> ... <span>S2408</span></p>
+                <label for="verified_student">Verified Student</label>
+                <input id="verified_student" type="text" value="{{ student.name }}" readonly>
+                <p class="hint">Authenticated session active for <span>{{ student.roll }}</span></p>
             </div>
-            {% if error %}
-            <div class="error-box">⚠ {{ error }}</div>
-            {% endif %}
-            <button type="submit">View My Result →</button>
+            <button type="submit">Open My Result Card →</button>
         </form>
     </div>
 </div>
 
 <div class="stats-row">
     <div class="stat-card">
-        <div class="stat-number">8</div>
-        <div class="stat-label">Students Enrolled</div>
+        <div class="stat-number">{{ student.roll }}</div>
+        <div class="stat-label">Student ID</div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">6</div>
-        <div class="stat-label">Subjects</div>
+        <div class="stat-number">{{ student.semester }}</div>
+        <div class="stat-label">Current Semester</div>
     </div>
     <div class="stat-card">
         <div class="stat-number">99.9%</div>
-        <div class="stat-label">Portal Uptime</div>
+        <div class="stat-label">Session Uptime</div>
     </div>
 </div>
 
@@ -429,7 +481,7 @@
 
 <footer>
     © 2025 Vishwakarma University · Examination Cell · All rights reserved.<br>
-    <span style="color: rgba(148,163,184,0.4); margin-top:0.3rem; display:block;">Powered by Docker Containerization — Build Once, Run Anywhere</span>
+    <span class="footer-note">Powered by Docker Containerization — Build Once, Run Anywhere</span>
 </footer>
 
 </body>

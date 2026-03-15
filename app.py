@@ -1,9 +1,44 @@
-from flask import Flask, render_template, request, jsonify
+# pyright: reportCallIssue=false
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import OperationalError
+from sqlalchemy import inspect, text
+from werkzeug.security import generate_password_hash, check_password_hash
 import socket
 import datetime
 import random
+import os
+import time
+import re
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "student-portal-dev-secret")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL",
+    "mysql+pymysql://student_user:student_pass@localhost:3306/student_portal"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
+
+INITIAL_PASSWORD_SUFFIX = os.environ.get("INITIAL_PASSWORD_SUFFIX", "@vu2026")
+DEFAULT_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin@12345")
+DB_INIT_RETRIES = int(os.environ.get("DB_INIT_RETRIES", "20"))
+DB_INIT_DELAY_SECONDS = float(os.environ.get("DB_INIT_DELAY_SECONDS", "2"))
+PASSWORD_MIN_LENGTH = int(os.environ.get("PASSWORD_MIN_LENGTH", "8"))
+STUDENT_MAX_FAILED_LOGIN_ATTEMPTS = int(
+    os.environ.get("STUDENT_MAX_FAILED_LOGIN_ATTEMPTS", os.environ.get("MAX_FAILED_LOGIN_ATTEMPTS", "5"))
+)
+STUDENT_LOCKOUT_MINUTES = int(
+    os.environ.get("STUDENT_LOCKOUT_MINUTES", os.environ.get("LOCKOUT_MINUTES", "15"))
+)
+ADMIN_MAX_FAILED_LOGIN_ATTEMPTS = int(
+    os.environ.get("ADMIN_MAX_FAILED_LOGIN_ATTEMPTS", os.environ.get("MAX_FAILED_LOGIN_ATTEMPTS", "5"))
+)
+ADMIN_LOCKOUT_MINUTES = int(
+    os.environ.get("ADMIN_LOCKOUT_MINUTES", os.environ.get("LOCKOUT_MINUTES", "15"))
+)
 
 # Simulated student database
 students_db = {
@@ -59,6 +94,220 @@ students_db = {
     "S2450": {"name": "Jayesh Pawar",     "roll": "S2450", "branch": "Computer Science",    "semester": "VI", "subjects": {"System Programming & Operating Systems": 83, "Probablity and Statistics": 88, "Design and Analysis of Algorithms": 81, "Machine Learning": 85, "Design Thinking": 90, "Database Management System": 84}},
 }
 
+
+class StudentCredential(db.Model):
+    __tablename__ = "student_credentials"
+
+    roll_number = db.Column(db.String(20), primary_key=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    must_change_password = db.Column(db.Boolean, nullable=False, default=True)
+    failed_login_attempts = db.Column(db.Integer, nullable=False, default=0)
+    locked_until = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.datetime.utcnow,
+        onupdate=datetime.datetime.utcnow,
+    )
+
+
+class AdminCredential(db.Model):
+    __tablename__ = "admin_credentials"
+
+    username = db.Column(db.String(80), primary_key=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    failed_login_attempts = db.Column(db.Integer, nullable=False, default=0)
+    locked_until = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.datetime.utcnow,
+        onupdate=datetime.datetime.utcnow,
+    )
+
+
+class AuthAuditLog(db.Model):
+    __tablename__ = "auth_audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    account_id = db.Column(db.String(80), nullable=False)
+    account_role = db.Column(db.String(20), nullable=False)
+    event_type = db.Column(db.String(40), nullable=False)
+    event_status = db.Column(db.String(20), nullable=False)
+    ip_address = db.Column(db.String(64), nullable=False, default="unknown")
+    user_agent = db.Column(db.String(255), nullable=False, default="unknown")
+    details = db.Column(db.Text, nullable=False, default="")
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+
+def seed_student_credentials():
+    for roll in students_db:
+        existing = StudentCredential.query.filter(StudentCredential.roll_number == roll).first()
+        if existing:
+            continue
+        initial_password = f"{roll.lower()}{INITIAL_PASSWORD_SUFFIX}"
+        credential = StudentCredential()
+        credential.roll_number = roll
+        credential.password_hash = generate_password_hash(initial_password)
+        credential.must_change_password = True
+        credential.failed_login_attempts = 0
+        credential.locked_until = None
+        db.session.add(credential)
+
+
+def seed_admin_credentials():
+    existing = AdminCredential.query.filter(AdminCredential.username == DEFAULT_ADMIN_USERNAME).first()
+    if existing:
+        return
+
+    admin = AdminCredential()
+    admin.username = DEFAULT_ADMIN_USERNAME
+    admin.password_hash = generate_password_hash(DEFAULT_ADMIN_PASSWORD)
+    admin.failed_login_attempts = 0
+    admin.locked_until = None
+    db.session.add(admin)
+
+
+def ensure_auth_lockout_columns():
+    inspector = inspect(db.engine)
+
+    table_columns = {
+        "student_credentials": {
+            col["name"] for col in inspector.get_columns("student_credentials")
+        },
+        "admin_credentials": {
+            col["name"] for col in inspector.get_columns("admin_credentials")
+        },
+    }
+
+    if "failed_login_attempts" not in table_columns["student_credentials"]:
+        db.session.execute(
+            text("ALTER TABLE student_credentials ADD COLUMN failed_login_attempts INT NOT NULL DEFAULT 0")
+        )
+    if "locked_until" not in table_columns["student_credentials"]:
+        db.session.execute(
+            text("ALTER TABLE student_credentials ADD COLUMN locked_until DATETIME NULL")
+        )
+    if "failed_login_attempts" not in table_columns["admin_credentials"]:
+        db.session.execute(
+            text("ALTER TABLE admin_credentials ADD COLUMN failed_login_attempts INT NOT NULL DEFAULT 0")
+        )
+    if "locked_until" not in table_columns["admin_credentials"]:
+        db.session.execute(
+            text("ALTER TABLE admin_credentials ADD COLUMN locked_until DATETIME NULL")
+        )
+
+
+def initialize_database_with_retry():
+    for attempt in range(1, DB_INIT_RETRIES + 1):
+        try:
+            db.create_all()
+            ensure_auth_lockout_columns()
+            seed_student_credentials()
+            seed_admin_credentials()
+            db.session.commit()
+            return
+        except OperationalError:
+            db.session.rollback()
+            if attempt == DB_INIT_RETRIES:
+                raise
+            print(f"Database not ready (attempt {attempt}/{DB_INIT_RETRIES}). Retrying...")
+            time.sleep(DB_INIT_DELAY_SECONDS)
+
+
+def get_lockout_policy(role):
+    if role == "admin":
+        return ADMIN_MAX_FAILED_LOGIN_ATTEMPTS, ADMIN_LOCKOUT_MINUTES
+    return STUDENT_MAX_FAILED_LOGIN_ATTEMPTS, STUDENT_LOCKOUT_MINUTES
+
+
+def get_request_context():
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    ip = (forwarded_for.split(",")[0].strip() if forwarded_for else "") or request.remote_addr or "unknown"
+    user_agent = request.headers.get("User-Agent", "unknown")
+    return {
+        "ip_address": ip[:64],
+        "user_agent": user_agent[:255],
+    }
+
+
+def write_auth_audit(account_id, role, event_type, status, details, context_data=None):
+    ctx = context_data or {"ip_address": "unknown", "user_agent": "unknown"}
+    audit = AuthAuditLog()
+    audit.account_id = account_id or "unknown"
+    audit.account_role = role
+    audit.event_type = event_type
+    audit.event_status = status
+    audit.ip_address = (ctx.get("ip_address") or "unknown")[:64]
+    audit.user_agent = (ctx.get("user_agent") or "unknown")[:255]
+    audit.details = details
+    db.session.add(audit)
+    db.session.commit()
+
+
+def validate_password_policy(password):
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
+    if not re.search(r"[A-Z]", password):
+        return "Password must include at least one uppercase letter."
+    if not re.search(r"[0-9]", password):
+        return "Password must include at least one number."
+    if not re.search(r"[^A-Za-z0-9]", password):
+        return "Password must include at least one symbol."
+    return None
+
+
+def account_lock_message(locked_until):
+    if not locked_until:
+        return None
+
+    now = datetime.datetime.utcnow()
+    if locked_until <= now:
+        return None
+
+    remaining_seconds = int((locked_until - now).total_seconds())
+    remaining_minutes = (remaining_seconds // 60) + (1 if remaining_seconds % 60 else 0)
+    return f"Account is locked due to repeated failed attempts. Try again in {remaining_minutes} minute(s)."
+
+
+def reset_lock_state(credential):
+    credential.failed_login_attempts = 0
+    credential.locked_until = None
+
+
+def register_failed_login_attempt(credential, role, account_id, context_data):
+    max_attempts, lockout_minutes = get_lockout_policy(role)
+    now = datetime.datetime.utcnow()
+    credential.failed_login_attempts = (credential.failed_login_attempts or 0) + 1
+
+    if credential.failed_login_attempts >= max_attempts:
+        credential.failed_login_attempts = 0
+        credential.locked_until = now + datetime.timedelta(minutes=lockout_minutes)
+        db.session.commit()
+        write_auth_audit(
+            account_id=account_id,
+            role=role,
+            event_type="login_lockout",
+            status="failure",
+            details=f"Account locked after {max_attempts} failed login attempts for {lockout_minutes} minutes.",
+            context_data=context_data,
+        )
+        return f"Too many failed attempts. Account locked for {lockout_minutes} minute(s)."
+
+    remaining = max_attempts - credential.failed_login_attempts
+    db.session.commit()
+    write_auth_audit(
+        account_id=account_id,
+        role=role,
+        event_type="login_failed",
+        status="failure",
+        details=f"Invalid password. {remaining} attempt(s) remaining before lockout.",
+        context_data=context_data,
+    )
+    return f"Invalid password. {remaining} attempt(s) remaining before lockout."
+
 def get_grade(marks):
     if marks >= 90: return "O", "Outstanding"
     elif marks >= 80: return "A+", "Excellent"
@@ -80,21 +329,435 @@ def get_result_summary(subjects):
         "percentage": round(avg, 2)
     }
 
-@app.route('/')
-def index():
-    container_id = socket.gethostname()
-    now = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
-    return render_template('index.html', container_id=container_id, timestamp=now)
 
-@app.route('/result', methods=['POST'])
-def get_result():
-    roll = request.form.get('roll_number', '').strip().upper()
+def student_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if session.get("auth_role") != "student" or "student_roll" not in session:
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+
+    return wrapped_view
+
+
+def admin_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if session.get("auth_role") != "admin" or "admin_username" not in session:
+            return redirect(url_for("admin_login"))
+        return view_func(*args, **kwargs)
+
+    return wrapped_view
+
+
+def get_logged_in_student():
+    roll = session.get("student_roll")
+    if not isinstance(roll, str) or not roll:
+        return None, None
     student = students_db.get(roll)
     if not student:
-        return render_template('index.html', 
-                               error="No student found with Roll Number: " + roll,
-                               container_id=socket.gethostname(),
-                               timestamp=datetime.datetime.now().strftime("%d %B %Y, %I:%M %p"))
+        session.clear()
+        return None, None
+    return roll, student
+
+
+def get_logged_in_admin():
+    username = session.get("admin_username")
+    if not isinstance(username, str) or not username:
+        return None
+    return username
+
+
+def validate_student_login(roll, password, context_data):
+    credential = StudentCredential.query.filter(StudentCredential.roll_number == roll).first()
+    if not credential:
+        write_auth_audit(
+            account_id=roll,
+            role="student",
+            event_type="login_failed",
+            status="failure",
+            details="Student credential record not found.",
+            context_data=context_data,
+        )
+        return None, "Student credential record not found. Contact admin."
+
+    lock_msg = account_lock_message(credential.locked_until)
+    if lock_msg:
+        write_auth_audit(
+            account_id=roll,
+            role="student",
+            event_type="login_blocked",
+            status="failure",
+            details=lock_msg,
+            context_data=context_data,
+        )
+        return None, lock_msg
+
+    if credential.locked_until:
+        reset_lock_state(credential)
+        db.session.commit()
+        write_auth_audit(
+            account_id=roll,
+            role="student",
+            event_type="lockout_cleared",
+            status="success",
+            details="Lockout expired and account was unlocked.",
+            context_data=context_data,
+        )
+
+    if not check_password_hash(credential.password_hash, password):
+        return None, register_failed_login_attempt(credential, "student", roll, context_data)
+
+    if credential.failed_login_attempts or credential.locked_until:
+        reset_lock_state(credential)
+        db.session.commit()
+
+    write_auth_audit(
+        account_id=roll,
+        role="student",
+        event_type="login_success",
+        status="success",
+        details="Student login successful.",
+        context_data=context_data,
+    )
+    return credential, None
+
+
+def validate_admin_login(username, password, context_data):
+    credential = AdminCredential.query.filter(AdminCredential.username == username).first()
+    if not credential:
+        write_auth_audit(
+            account_id=username,
+            role="admin",
+            event_type="login_failed",
+            status="failure",
+            details="Invalid admin username.",
+            context_data=context_data,
+        )
+        return None, "Invalid admin credentials."
+
+    lock_msg = account_lock_message(credential.locked_until)
+    if lock_msg:
+        write_auth_audit(
+            account_id=username,
+            role="admin",
+            event_type="login_blocked",
+            status="failure",
+            details=lock_msg,
+            context_data=context_data,
+        )
+        return None, lock_msg
+
+    if credential.locked_until:
+        reset_lock_state(credential)
+        db.session.commit()
+        write_auth_audit(
+            account_id=username,
+            role="admin",
+            event_type="lockout_cleared",
+            status="success",
+            details="Lockout expired and account was unlocked.",
+            context_data=context_data,
+        )
+
+    if not check_password_hash(credential.password_hash, password):
+        return None, register_failed_login_attempt(credential, "admin", username, context_data)
+
+    if credential.failed_login_attempts or credential.locked_until:
+        reset_lock_state(credential)
+        db.session.commit()
+
+    write_auth_audit(
+        account_id=username,
+        role="admin",
+        event_type="login_success",
+        status="success",
+        details="Admin login successful.",
+        context_data=context_data,
+    )
+    return credential, None
+
+
+@app.route('/')
+def root_redirect():
+    role = session.get("auth_role")
+    if role == "student":
+        return redirect(url_for('index'))
+    if role == "admin":
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('login'))
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get("auth_role") == "student" and request.method == 'GET':
+        return redirect(url_for('index'))
+    if session.get("auth_role") == "admin" and request.method == 'GET':
+        return redirect(url_for('admin_dashboard'))
+
+    error = None
+    roll_hint = ""
+    if request.method == 'POST':
+        context_data = get_request_context()
+        roll = request.form.get('roll_number', '').strip().upper()
+        password = request.form.get('password', '').strip()
+        student = students_db.get(roll)
+        credential, auth_error = validate_student_login(roll, password, context_data)
+
+        if not student:
+            error = f"No student found with Roll Number: {roll}"
+            roll_hint = roll
+        elif not credential:
+            error = auth_error or "Invalid password. Please check your credentials."
+            roll_hint = roll
+        else:
+            session.clear()
+            session['auth_role'] = 'student'
+            session['student_roll'] = roll
+            if credential.must_change_password:
+                return redirect(url_for('change_password'))
+            return redirect(url_for('index'))
+
+    container_id = socket.gethostname()
+    now = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
+    return render_template(
+        'login.html',
+        container_id=container_id,
+        timestamp=now,
+        error=error,
+        roll_hint=roll_hint,
+        password_suffix=INITIAL_PASSWORD_SUFFIX
+    )
+
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@student_required
+def change_password():
+    roll, student = get_logged_in_student()
+    if not student or not roll:
+        return redirect(url_for('login'))
+
+    credential = StudentCredential.query.filter(StudentCredential.roll_number == roll).first()
+    if not credential:
+        session.clear()
+        return redirect(url_for('login'))
+
+    error = None
+    if request.method == 'POST':
+        context_data = get_request_context()
+        current_password = request.form.get('current_password', '').strip()
+        new_password = request.form.get('new_password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        policy_error = validate_password_policy(new_password)
+
+        if not check_password_hash(credential.password_hash, current_password):
+            error = "Current password is incorrect."
+            write_auth_audit(
+                account_id=roll,
+                role="student",
+                event_type="password_change_failed",
+                status="failure",
+                details="Current password mismatch while changing password.",
+                context_data=context_data,
+            )
+        elif policy_error:
+            error = policy_error
+            write_auth_audit(
+                account_id=roll,
+                role="student",
+                event_type="password_change_failed",
+                status="failure",
+                details=policy_error,
+                context_data=context_data,
+            )
+        elif new_password != confirm_password:
+            error = "New password and confirm password do not match."
+            write_auth_audit(
+                account_id=roll,
+                role="student",
+                event_type="password_change_failed",
+                status="failure",
+                details="Password confirmation mismatch.",
+                context_data=context_data,
+            )
+        else:
+            credential.password_hash = generate_password_hash(new_password)
+            credential.must_change_password = False
+            db.session.commit()
+            write_auth_audit(
+                account_id=roll,
+                role="student",
+                event_type="password_change_success",
+                status="success",
+                details="Password changed successfully.",
+                context_data=context_data,
+            )
+            return redirect(url_for('index'))
+
+    container_id = socket.gethostname()
+    now = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
+    return render_template(
+        'change_password.html',
+        student=student,
+        container_id=container_id,
+        timestamp=now,
+        error=error,
+    )
+
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if session.get("auth_role") == "admin" and request.method == 'GET':
+        return redirect(url_for('admin_dashboard'))
+    if session.get("auth_role") == "student" and request.method == 'GET':
+        return redirect(url_for('index'))
+
+    error = None
+    username_hint = ""
+    if request.method == 'POST':
+        context_data = get_request_context()
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        credential, auth_error = validate_admin_login(username, password, context_data)
+
+        if not credential:
+            error = auth_error or "Invalid admin credentials."
+            username_hint = username
+        else:
+            session.clear()
+            session['auth_role'] = 'admin'
+            session['admin_username'] = credential.username
+            return redirect(url_for('admin_dashboard'))
+
+    container_id = socket.gethostname()
+    now = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
+    return render_template(
+        'admin_login.html',
+        container_id=container_id,
+        timestamp=now,
+        error=error,
+        username_hint=username_hint,
+    )
+
+
+@app.route('/admin/dashboard')
+@admin_required
+def admin_dashboard():
+    query = request.args.get('q', '').strip().lower()
+    message = request.args.get('msg', '').strip()
+    admin_username = get_logged_in_admin()
+
+    credentials = {
+        cred.roll_number: cred
+        for cred in StudentCredential.query.order_by(StudentCredential.roll_number.asc()).all()
+    }
+    recent_audit_logs = AuthAuditLog.query.order_by(AuthAuditLog.created_at.desc()).limit(25).all()
+
+    students = []
+    for roll, student in students_db.items():
+        if query and query not in roll.lower() and query not in student['name'].lower() and query not in student['branch'].lower():
+            continue
+
+        credential = credentials.get(roll)
+        students.append(
+            {
+                "roll": roll,
+                "name": student['name'],
+                "branch": student['branch'],
+                "semester": student['semester'],
+                "password_hash": credential.password_hash if credential else "Not seeded",
+                "must_change_password": credential.must_change_password if credential else True,
+                "updated_at": credential.updated_at.strftime("%d %b %Y %I:%M %p") if credential and credential.updated_at else "N/A",
+            }
+        )
+
+    container_id = socket.gethostname()
+    now = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
+    return render_template(
+        'admin_dashboard.html',
+        students=students,
+        audit_logs=recent_audit_logs,
+        query=query,
+        message=message,
+        student_lockout_attempts=STUDENT_MAX_FAILED_LOGIN_ATTEMPTS,
+        student_lockout_minutes=STUDENT_LOCKOUT_MINUTES,
+        admin_lockout_attempts=ADMIN_MAX_FAILED_LOGIN_ATTEMPTS,
+        admin_lockout_minutes=ADMIN_LOCKOUT_MINUTES,
+        admin_username=admin_username,
+        container_id=container_id,
+        timestamp=now,
+    )
+
+
+@app.route('/admin/reset-password', methods=['POST'])
+@admin_required
+def admin_reset_password():
+    context_data = get_request_context()
+    roll = request.form.get('roll_number', '').strip().upper()
+    new_password = request.form.get('new_password', '').strip()
+    query = request.form.get('query', '').strip()
+
+    if roll not in students_db:
+        return redirect(url_for('admin_dashboard', q=query, msg=f"Unknown student roll number: {roll}"))
+
+    policy_error = validate_password_policy(new_password)
+    if policy_error:
+        return redirect(url_for('admin_dashboard', q=query, msg=policy_error))
+
+    credential = StudentCredential.query.filter(StudentCredential.roll_number == roll).first()
+    if not credential:
+        credential = StudentCredential()
+        credential.roll_number = roll
+        credential.password_hash = generate_password_hash(new_password)
+        credential.must_change_password = True
+        db.session.add(credential)
+    else:
+        credential.password_hash = generate_password_hash(new_password)
+        credential.must_change_password = True
+
+    db.session.commit()
+    write_auth_audit(
+        account_id=session.get('admin_username', 'admin'),
+        role="admin",
+        event_type="password_reset",
+        status="success",
+        details=f"Admin reset password for student {roll}.",
+        context_data=context_data,
+    )
+    return redirect(url_for('admin_dashboard', q=query, msg=f"Password reset for {roll}. Student must change password after next login."))
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@student_required
+def index():
+    _, student = get_logged_in_student()
+    if not student:
+        return redirect(url_for('login'))
+
+    credential = StudentCredential.query.filter(StudentCredential.roll_number == student['roll']).first()
+    if credential and credential.must_change_password:
+        return redirect(url_for('change_password'))
+
+    container_id = socket.gethostname()
+    now = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
+    return render_template(
+        'index.html',
+        container_id=container_id,
+        timestamp=now,
+        student=student
+    )
+
+@app.route('/result', methods=['GET'])
+@student_required
+def get_result():
+    _, student = get_logged_in_student()
+    if not student:
+        return redirect(url_for('login'))
     
     subjects_with_grades = {}
     for sub, marks in student['subjects'].items():
@@ -114,12 +777,27 @@ def get_result():
 
 @app.route('/api/stats')
 def stats():
+    role = session.get("auth_role", "anonymous")
+    if role == "student":
+        identity = session.get("student_roll", "anonymous")
+    elif role == "admin":
+        identity = session.get("admin_username", "anonymous")
+    else:
+        identity = "anonymous"
+
     return jsonify({
         "container_id": socket.gethostname(),
         "uptime": "Running",
         "active_requests": random.randint(1, 50),
+        "authenticated_user": identity,
+        "role": role,
         "timestamp": datetime.datetime.now().isoformat()
     })
+
+
+with app.app_context():
+    initialize_database_with_retry()
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False)

@@ -1,9 +1,43 @@
-version: '3.8'
-
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: student_result_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: student_portal
+      MYSQL_USER: student_user
+      MYSQL_PASSWORD: student_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   result-portal:
     build: .
     ports:
       - "5000:5000"
     container_name: student_result_portal
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://student_user:student_pass@mysql:3306/student_portal
+      SECRET_KEY: replace-this-secret-key-in-production
+      INITIAL_PASSWORD_SUFFIX: "@vu2026"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: Admin@12345
+      PASSWORD_MIN_LENGTH: "8"
+      STUDENT_MAX_FAILED_LOGIN_ATTEMPTS: "5"
+      STUDENT_LOCKOUT_MINUTES: "15"
+      ADMIN_MAX_FAILED_LOGIN_ATTEMPTS: "3"
+      ADMIN_LOCKOUT_MINUTES: "30"
+
+volumes:
+  mysql_data:
